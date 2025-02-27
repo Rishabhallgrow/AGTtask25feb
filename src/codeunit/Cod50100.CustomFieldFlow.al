@@ -1,28 +1,25 @@
 codeunit 50100 "CustomFieldFlow"
 {
 
-    //Transfer CustomField from Purchase Header → Item Journal Line
+    // Transfer CustomField from Purchase Header → Item Journal Line
     [EventSubscriber(ObjectType::Table, Database::"Item Journal Line", 'OnBeforeInsertEvent', '', false, false)]
     local procedure OnBeforeItemJnlLineInsert(var Rec: Record "Item Journal Line")
     var
         PurchHeader: Record "Purchase Header";
-        PurchLine: Record "Purchase Line";
     begin
-        if PurchLine.Get(Rec."Document Type", Rec."Document No.", Rec."Line No.") then begin
-            if PurchHeader.Get(PurchLine."Document Type", PurchLine."Document No.") then begin
+        // Ensure it's coming from a Purchase Document
+        if Rec."Source Type".AsInteger() = DATABASE::"Purchase Header" then begin
+            if PurchHeader.Get(Rec."Source No.") then begin
                 Rec."CustomField" := PurchHeader."CustomField";
+                Message('CustomField copied to Item Journal Line: ' + Rec."CustomField");
             end;
         end;
     end;
 
     // Transfer CustomField from Item Journal Line → Item Ledger Entry
-    [EventSubscriber(ObjectType::Table, Database::"Item Ledger Entry", 'OnBeforeInsertEvent', '', false, false)]
-    local procedure OnBeforeItemLedgEntryInsert(var Rec: Record "Item Ledger Entry")
-    var
-        ItemJnlLine: Record "Item Journal Line";
+    [EventSubscriber(ObjectType::Codeunit, Codeunit::"Item Jnl.-Post Line", 'OnBeforeInsertItemLedgEntry', '', false, false)]
+    local procedure OnBeforeInsertItemLedgEntry(var ItemLedgerEntry: Record "Item Ledger Entry"; ItemJournalLine: Record "Item Journal Line")
     begin
-        if ItemJnlLine.Get(Rec."Document No.", Rec."Document Line No.") then begin
-            Rec."CustomField" := ItemJnlLine."CustomField";
-        end;
+        ItemLedgerEntry."CustomField" := ItemJournalLine."CustomField";
     end;
 }
